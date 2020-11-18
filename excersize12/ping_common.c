@@ -52,7 +52,7 @@ long long tsum;			/* sum of all times, for doing average */
 long long tsum2;
 int  pipesize = -1;
 
-unsigned int datalen = DEFDATALEN;
+int unsigned datalen = DEFDATALEN;
 
 char *hostname;
 int uid;
@@ -98,6 +98,7 @@ static void fill(char *patp)
 
 void common_options(int ch)
 {
+	int temp;
 	switch(ch) {
 	case 'a':
 		options |= F_AUDIBLE;
@@ -106,7 +107,7 @@ void common_options(int ch)
 		options |= F_ADAPTIVE;
 		break;
 	case 'c':
-		npackets = atoi(optarg);
+		npackets = strtol(optarg, NULL, 10);
 		if (npackets <= 0) {
 			fprintf(stderr, "ping: bad number of packets to transmit.\n");
 			exit(2);
@@ -143,14 +144,14 @@ void common_options(int ch)
 		break;
 	}
 	case 'w':
-		deadline = atoi(optarg);
+		deadline = strtol(optarg, NULL, 10);
 		if (deadline < 0) {
 			fprintf(stderr, "ping: bad wait time.\n");
 			exit(2);
 		}
 		break;
 	case 'l':
-		preload = atoi(optarg);
+		preload = strtol(optarg, NULL, 10);
 		if (preload <= 0) {
 			fprintf(stderr, "ping: bad preload value, should be 1..%d\n", mx_dup_ck);
 			exit(2);
@@ -163,7 +164,7 @@ void common_options(int ch)
 		}
 		break;
 	case 'S':
-		sndbuf = atoi(optarg);
+		sndbuf = strtol(optarg, NULL, 10);
 		break;
 	case 'n':
 		options |= F_NUMERIC;
@@ -179,11 +180,12 @@ void common_options(int ch)
 		options |= F_SO_DONTROUTE;
 		break;
 	case 's':		/* size of packet to send */
-		datalen = atoi(optarg);
-		if (datalen < 0) {
+		temp = strtol(optarg, NULL, 10);
+		if (temp < 0) {
 			fprintf(stderr, "ping: illegal negative packet size %d.\n", datalen);
 			exit(2);
 		}
+		datalen = (size_t)temp;
 		break;
 	case 'v':
 		options |= F_VERBOSE;
@@ -193,7 +195,7 @@ void common_options(int ch)
 		break;
 	case 't':
 		options |= F_TTL;
-		ttl = atoi(optarg);
+		ttl = strtol(optarg, NULL, 10);
 		if (ttl < 0 || ttl > 255) {
 			fprintf(stderr, "ping: ttl %u out of range\n", ttl);
 			exit(2);
@@ -206,7 +208,7 @@ void common_options(int ch)
 		options |= F_STRICTSOURCE;
 		break;
 	case 'W':
-		lingertime = atoi(optarg);
+		lingertime = strtol(optarg, NULL, 10);
 		if (lingertime < 0 || lingertime > INT_MAX/1000000) {
 			fprintf(stderr, "ping: bad linger time.\n");
 			exit(2);
