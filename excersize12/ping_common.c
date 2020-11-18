@@ -646,7 +646,14 @@ void main_loop(int icmp_sock, uint8_t *packet, int packlen)
 	finish();
 }
 
-void safe_strcpy(char *s, char* d) { while ((*d++ = *s++) != 0); }
+void safe_strcpy(char *s, char* d, size_t size) { 
+	size_t i = 0;
+	while (i < (size-1) && *s != '\0') {
+		*d++ = *s++;
+		++i;
+	}
+	*d = '\0';
+}
 
 int gather_statistics(uint8_t *ptr, int cc, uint16_t seq, int hops,
 		      int csfailed, struct timeval *tv, char *from)
@@ -715,7 +722,7 @@ restamp:
 		unsigned int i;
 		uint8_t *cp, *dp;
 		printf("%d bytes from ", cc);
-		printf(from);
+		printf("%s", from);
 		printf(": icmp_seq=%u", seq);
 
 		if (hops >= 0)
@@ -791,7 +798,7 @@ void finish(void)
 	putchar('\n');
 	fflush(stdout);
 	printf("--- ");
-	printf(hostname);
+	printf("%s", hostname);
 	printf(" statistics ---\n");
 	printf("%ld packets transmitted, ", ntransmitted);
 	printf("%ld received", nreceived);

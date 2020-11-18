@@ -197,7 +197,7 @@ extern void setup(int icmp_sock);
 extern void main_loop(int icmp_sock, uint8_t *buf, int buflen) __attribute__((noreturn));
 extern void finish(void) __attribute__((noreturn));
 extern void status(void);
-extern void safe_strcpy(char* s, char* d);
+extern void safe_strcpy(char* s, char* d, size_t size);
 extern void common_options(int ch);
 extern int gather_statistics(uint8_t *ptr, int cc, uint16_t seq, int hops,
 			     int csfailed, struct timeval *tv, char *from);

@@ -96,7 +96,6 @@ static void pr_iph(struct iphdr *ip);
 static void usage(void) __attribute__((noreturn));
 static unsigned short in_cksum(const unsigned short *addr, int len, unsigned short salt);
 static void pr_icmph(uint8_t type, uint8_t code, uint32_t info, struct icmphdr *icp);
-static int parsetos(char *str);
 
 static struct {
 	struct cmsghdr cm;
@@ -236,7 +235,7 @@ main(int argc, char **argv)
 		}
 	}
 	while (argc > 0) {
-		safe_strcpy(*argv, target);
+		safe_strcpy(*argv, target, MAXHOSTNAMELEN);
 
 		bzero((char *)&whereto, sizeof(whereto));
 		whereto.sin_family = AF_INET;
@@ -248,12 +247,12 @@ main(int argc, char **argv)
 			hp = gethostbyname2(target, AF_INET);
 			if (!hp) {
 				fprintf(stderr, "ping: unknown host ");
-				fprintf(stderr, target);
+				fprintf(stderr, "%s", target);
 				fprintf(stderr, "\n");
 				return(2);
 			}
 			memcpy(&whereto.sin_addr, hp->h_addr, 4);
-			safe_strcpy(hp->h_name, hnamebuf);
+			safe_strcpy(hp->h_name, hnamebuf, MAXHOSTNAMELEN);
 			hostname = hnamebuf;
 		}
 		if (argc > 1)
@@ -272,13 +271,14 @@ main(int argc, char **argv)
 		}
 		if (device) {
 			memset(&ifr, 0, sizeof(ifr));
-			strcpy(ifr.ifr_name, device);
+			safe_strcpy(ifr.ifr_name, device, IFNAMSIZ); // IFNAMSIZ = https://man7.org/linux/man-pages/man7/netdevice.7.html
+			//strcpy(ifr.ifr_name, device);
 			if (setsockopt(probe_fd, SOL_SOCKET, SO_BINDTODEVICE, device, strlen(device)+1) == -1) {
 				if (IN_MULTICAST(ntohl(dst.sin_addr.s_addr))) {
 					struct ip_mreqn imr;
 					if (ioctl(probe_fd, SIOCGIFINDEX, &ifr) < 0) {
 						fprintf(stderr, "ping: unknown iface ");
-						fprintf(stderr, device);
+						fprintf(stderr, "%s", device);
 						fprintf(stderr, "\n");
 						return(2);
 					}
@@ -340,10 +340,10 @@ main(int argc, char **argv)
 
 	if (device) {
 		memset(&ifr, 0, sizeof(ifr));
-		safe_strcpy(device, ifr.ifr_name);
+		safe_strcpy(device, ifr.ifr_name, IFNAMSIZ);
 		if (ioctl(icmp_sock, SIOCGIFINDEX, &ifr) < 0) {
 		  fprintf(stderr, "ping: unknown iface ");
-		  fprintf(stderr, device);
+		  fprintf(stderr, "%s", device);
 		  fprintf(stderr, "\n");
 		  return(2);
 		}
@@ -506,7 +506,7 @@ main(int argc, char **argv)
 	}
 
 	printf("PING ");
-	printf(hostname);
+	printf("%s", hostname);
 	printf("(%s) ", inet_ntoa(whereto.sin_addr));
 	if (device || (options&F_STRICTSOURCE))
 		printf("from %s %s: ", inet_ntoa(source.sin_addr), device ? device : "");
@@ -1181,34 +1181,6 @@ pr_addr(uint32_t addr)
 		snprintf(buf, sizeof(buf), "%s (%s)", hp->h_name,
 			 inet_ntoa(*(struct in_addr *)&addr));
 	return(buf);
-}
-
-
-/* Set Type of Service (TOS) and other Quality of Service relating bits */
-int parsetos(char *str)
-{
-        const char *cp;
-        int tos;
-        char *ep;
-
-        /* handle both hex and decimal values */
-        if (str[0] == '0' && (str[1] == 'x' || str[1] == 'X')) {
-		cp = str + 2;
-		tos = (int)strtol(cp, &ep, 16);
-        } else
-                tos = (int)strtol(str, &ep, 10);
-
-        /* doesn't look like decimal or hex, eh? */
-        if (*ep != '\0') {
-        	fprintf(stderr, "ping: \"%s\" bad value for TOS\n", str);
-        	exit(2);
-        }
-
-        if (tos > TOS_MAX) {
-        	fprintf(stderr, "ping: the decimal value of TOS bits must be 0-254 (or zero)\n");
-        	exit(2);
-        }
-	return(tos);
 }
 
 #include <linux/filter.h>
