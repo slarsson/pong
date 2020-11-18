@@ -1,0 +1,35 @@
+69d68
+< #include <unistd.h>
+116,138d114
+< 	// first do the tasks who need euid and suid same as owner (root access)
+< 	// the owner is root since the program has the sbit set (chmod +s /bin/pong) and is installed by root
+< 	int probe_fd = socket(AF_INET, SOCK_DGRAM, 0);
+< 	icmp_sock = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
+< 
+< 	// after completing the tasks who need root access, drop privileges!
+< 	uid_t ruid = getuid(); // returns the real uid (ruid)
+< 	gid_t rgid = getgid(); // returns the real gid (rgid)
+< 
+< 	if (setresgid(rgid, rgid, rgid) != 0)
+< 	{
+< 		fprintf(stderr, "Error setting gid\n");
+< 		return(1);
+< 	}
+< 
+< 	if (setresuid(ruid, ruid, ruid) != 0)
+< 	{
+< 		fprintf(stderr, "Error setting uid\n");
+< 		return(1);
+< 	}
+< 
+< 	uid = ruid; // uid should be same as the real uid?
+< 	
+268c244,245
+< 		
+---
+> 		int probe_fd = socket(AF_INET, SOCK_DGRAM, 0);
+> 
+336c313
+< 	if (icmp_sock < 0) {
+---
+> 	if ((icmp_sock = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP)) < 0) {
