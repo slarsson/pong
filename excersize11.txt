@@ -1,0 +1,59 @@
+--- excersize11/ping.c	2020-11-18 19:04:03.245291479 +0100
++++ original/ping.c	2020-11-10 19:16:36.408952000 +0100
+@@ -66,7 +66,6 @@
+ #include <arpa/inet.h>
+ #include <netinet/ip.h>
+ #include <netinet/ip_icmp.h>
+-#include <unistd.h>
+ 
+ 
+ #define	MAXIPLEN	60
+@@ -113,29 +112,6 @@
+ int
+ main(int argc, char **argv)
+ {
+-	// first do the tasks who need euid and suid same as owner (root access)
+-	// the owner is root since the program has the sbit set (chmod +s /bin/pong) and is installed by root
+-	int probe_fd = socket(AF_INET, SOCK_DGRAM, 0);
+-	icmp_sock = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
+-
+-	// after completing the tasks who need root access, drop privileges!
+-	uid_t ruid = getuid(); // returns the real uid (ruid)
+-	gid_t rgid = getgid(); // returns the real gid (rgid)
+-
+-	if (setresgid(rgid, rgid, rgid) != 0)
+-	{
+-		fprintf(stderr, "Error setting gid\n");
+-		return(1);
+-	}
+-
+-	if (setresuid(ruid, ruid, ruid) != 0)
+-	{
+-		fprintf(stderr, "Error setting uid\n");
+-		return(1);
+-	}
+-
+-	uid = ruid; // uid should be same as the real ruid?
+-	
+ 	char target[MAXHOSTNAMELEN], hnamebuf[MAXHOSTNAMELEN];
+         struct ifreq ifr;
+ 	struct hostent *hp;
+@@ -265,7 +241,8 @@
+ 	if (source.sin_addr.s_addr == 0) {
+ 		int alen;
+ 		struct sockaddr_in dst = whereto;
+-		
++		int probe_fd = socket(AF_INET, SOCK_DGRAM, 0);
++
+ 		if (probe_fd < 0) {
+ 			perror("socket");
+ 			return(2);
+@@ -333,7 +310,7 @@
+ 		whereto.sin_addr.s_addr = source.sin_addr.s_addr;
+ 
+ 
+-	if (icmp_sock < 0) {
++	if ((icmp_sock = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP)) < 0) {
+ 		perror("ping: icmp open socket");
+ 		return(2);
+ 	}

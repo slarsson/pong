@@ -1,0 +1,229 @@
+--- excersize12/ping_common.c	2020-11-18 20:35:53.970424620 +0100
++++ original/ping_common.c	2020-11-10 19:16:36.524948000 +0100
+@@ -52,7 +52,7 @@
+ long long tsum2;
+ int  pipesize = -1;
+ 
+-int unsigned datalen = DEFDATALEN;
++int datalen = DEFDATALEN;
+ 
+ char *hostname;
+ int uid;
+@@ -68,7 +68,7 @@
+ 	int ii, jj, kk;
+ 	int pat[16];
+ 	char *cp;
+-	unsigned char *bp = outpack+8;
++	char *bp = outpack+8;
+ 
+ 	for (cp = patp; *cp; cp++) {
+ 		if (!isxdigit(*cp)) {
+@@ -98,7 +98,6 @@
+ 
+ void common_options(int ch)
+ {
+-	int temp;
+ 	switch(ch) {
+ 	case 'a':
+ 		options |= F_AUDIBLE;
+@@ -107,7 +106,7 @@
+ 		options |= F_ADAPTIVE;
+ 		break;
+ 	case 'c':
+-		npackets = strtol(optarg, NULL, 10);
++		npackets = atoi(optarg);
+ 		if (npackets <= 0) {
+ 			fprintf(stderr, "ping: bad number of packets to transmit.\n");
+ 			exit(2);
+@@ -144,14 +143,14 @@
+ 		break;
+ 	}
+ 	case 'w':
+-		deadline = strtol(optarg, NULL, 10);
++		deadline = atoi(optarg);
+ 		if (deadline < 0) {
+ 			fprintf(stderr, "ping: bad wait time.\n");
+ 			exit(2);
+ 		}
+ 		break;
+ 	case 'l':
+-		preload = strtol(optarg, NULL, 10);
++		preload = atoi(optarg);
+ 		if (preload <= 0) {
+ 			fprintf(stderr, "ping: bad preload value, should be 1..%d\n", mx_dup_ck);
+ 			exit(2);
+@@ -164,7 +163,7 @@
+ 		}
+ 		break;
+ 	case 'S':
+-		sndbuf = strtol(optarg, NULL, 10);
++		sndbuf = atoi(optarg);
+ 		break;
+ 	case 'n':
+ 		options |= F_NUMERIC;
+@@ -180,12 +179,11 @@
+ 		options |= F_SO_DONTROUTE;
+ 		break;
+ 	case 's':		/* size of packet to send */
+-		temp = strtol(optarg, NULL, 10);
+-		if (temp < 0) {
++		datalen = atoi(optarg);
++		if (datalen < 0) {
+ 			fprintf(stderr, "ping: illegal negative packet size %d.\n", datalen);
+ 			exit(2);
+ 		}
+-		datalen = (size_t)temp;
+ 		break;
+ 	case 'v':
+ 		options |= F_VERBOSE;
+@@ -195,7 +193,7 @@
+ 		break;
+ 	case 't':
+ 		options |= F_TTL;
+-		ttl = strtol(optarg, NULL, 10);
++		ttl = atoi(optarg);
+ 		if (ttl < 0 || ttl > 255) {
+ 			fprintf(stderr, "ping: ttl %u out of range\n", ttl);
+ 			exit(2);
+@@ -208,7 +206,7 @@
+ 		options |= F_STRICTSOURCE;
+ 		break;
+ 	case 'W':
+-		lingertime = strtol(optarg, NULL, 10);
++		lingertime = atoi(optarg);
+ 		if (lingertime < 0 || lingertime > INT_MAX/1000000) {
+ 			fprintf(stderr, "ping: bad linger time.\n");
+ 			exit(2);
+@@ -226,13 +224,11 @@
+ 
+ static void sigexit(int signo)
+ {
+-	(void)(signo); // suppress warnings, signo is (probably) needed by set_signal
+ 	exiting = 1;
+ }
+ 
+ static void sigstatus(int signo)
+ {
+-	(void)(signo); // suppress warnings, signo is (probably) needed by set_signal
+ 	status_snapshot = 1;
+ }
+ 
+@@ -247,12 +243,12 @@
+ 
+ 	if (nreceived) {
+ 		waittime = 2 * tmax;
+-		if (waittime < 1000*(size_t)interval)
++		if (waittime < 1000*interval)
+ 			waittime = 1000*interval;
+ 	} else
+ 		waittime = lingertime*1000;
+ 
+-	if (next < 0 || (size_t)next < waittime/1000)
++	if (next < 0 || next < waittime/1000)
+ 		next = waittime/1000;
+ 
+ 	it.it_interval.tv_sec = 0;
+@@ -394,7 +390,7 @@
+ void sock_setbufs(int icmp_sock, int alloc)
+ {
+ 	int rcvbuf, hold;
+-	size_t tmplen = sizeof(hold);
++	int tmplen = sizeof(hold);
+ 
+ 	if (!sndbuf)
+ 		sndbuf = alloc;
+@@ -466,8 +462,8 @@
+ 		options |= F_FLOOD_POLL;
+ 
+ 	if (!(options & F_PINGFILLED)) {
+-		unsigned int i;
+-		unsigned char *p = outpack+8;
++		int i;
++		char *p = outpack+8;
+ 
+ 		/* Do not forget about case of small datalen,
+ 		 * fill timestamp area too!
+@@ -511,7 +507,7 @@
+ 	struct iovec iov;
+ 	struct msghdr msg;
+ 	struct cmsghdr *c;
+-	unsigned int cc;
++	int cc;
+ 	int next;
+ 	int polling;
+ 
+@@ -594,10 +590,10 @@
+ 			msg.msg_control = ans_data;
+ 			msg.msg_controllen = sizeof(ans_data);
+ 
+-			int ccsize = recvmsg(icmp_sock, &msg, polling);
++			cc = recvmsg(icmp_sock, &msg, polling);
+ 			polling = MSG_DONTWAIT;
+ 
+-			if (ccsize < 0) {
++			if (cc < 0) {
+ 				if (errno == EAGAIN || errno == EINTR)
+ 					break;
+ 				if (!receive_error_msg()) {
+@@ -620,7 +616,6 @@
+ 				}
+ #endif
+ 
+-				cc = ccsize;
+ 				if ((options&F_LATENCY) || recv_timep == NULL) {
+ 					if ((options&F_LATENCY) ||
+ 					    ioctl(icmp_sock, SIOCGSTAMP, &recv_time))
+@@ -648,14 +643,7 @@
+ 	finish();
+ }
+ 
+-void safe_strcpy(char *s, char* d, size_t size) { 
+-	size_t i = 0;
+-	while (i < (size-1) && *s != '\0') {
+-		*d++ = *s++;
+-		++i;
+-	}
+-	*d = '\0';
+-}
++void safe_strcpy(char *s, char* d) { while ((*d++ = *s++) != 0); }
+ 
+ int gather_statistics(uint8_t *ptr, int cc, uint16_t seq, int hops,
+ 		      int csfailed, struct timeval *tv, char *from)
+@@ -667,7 +655,7 @@
+ 	if (!csfailed)
+ 		acknowledge(seq);
+ 
+-	if (timing && (size_t)cc >= 8+sizeof(struct timeval)) {
++	if (timing && cc >= 8+sizeof(struct timeval)) {
+ 		struct timeval tmp_tv;
+ 		memcpy(&tmp_tv, ptr, sizeof(tmp_tv));
+ 
+@@ -721,16 +709,16 @@
+ 		else
+ 			write(STDOUT_FILENO, "\bC", 1);
+ 	} else {
+-		unsigned int i;
++		int i;
+ 		uint8_t *cp, *dp;
+ 		printf("%d bytes from ", cc);
+-		printf("%s", from);
++		printf(from);
+ 		printf(": icmp_seq=%u", seq);
+ 
+ 		if (hops >= 0)
+ 			printf(" ttl=%d", hops);
+ 
+-		if ((size_t)cc < datalen+8) {
++		if (cc < datalen+8) {
+ 			printf(" (truncated)\n");
+ 			return 1;
+ 		}
+@@ -800,7 +788,7 @@
+ 	putchar('\n');
+ 	fflush(stdout);
+ 	printf("--- ");
+-	printf("%s", hostname);
++	printf(hostname);
+ 	printf(" statistics ---\n");
+ 	printf("%ld packets transmitted, ", ntransmitted);
+ 	printf("%ld received", nreceived);
