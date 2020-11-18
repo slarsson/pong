@@ -52,7 +52,7 @@ long long tsum;			/* sum of all times, for doing average */
 long long tsum2;
 int  pipesize = -1;
 
-int datalen = DEFDATALEN;
+unsigned int datalen = DEFDATALEN;
 
 char *hostname;
 int uid;
@@ -68,7 +68,7 @@ static void fill(char *patp)
 	int ii, jj, kk;
 	int pat[16];
 	char *cp;
-	char *bp = outpack+8;
+	unsigned char *bp = outpack+8;
 
 	for (cp = patp; *cp; cp++) {
 		if (!isxdigit(*cp)) {
@@ -224,11 +224,13 @@ void common_options(int ch)
 
 static void sigexit(int signo)
 {
+	(void)(signo); // suppress warnings, signo is (probably) needed by set_signal
 	exiting = 1;
 }
 
 static void sigstatus(int signo)
 {
+	(void)(signo); // suppress warnings, signo is (probably) needed by set_signal
 	status_snapshot = 1;
 }
 
@@ -243,12 +245,12 @@ int __schedule_exit(int next)
 
 	if (nreceived) {
 		waittime = 2 * tmax;
-		if (waittime < 1000*interval)
+		if (waittime < 1000*(size_t)interval)
 			waittime = 1000*interval;
 	} else
 		waittime = lingertime*1000;
 
-	if (next < 0 || next < waittime/1000)
+	if (next < 0 || (size_t)next < waittime/1000)
 		next = waittime/1000;
 
 	it.it_interval.tv_sec = 0;
@@ -390,7 +392,7 @@ resend:
 void sock_setbufs(int icmp_sock, int alloc)
 {
 	int rcvbuf, hold;
-	int tmplen = sizeof(hold);
+	size_t tmplen = sizeof(hold);
 
 	if (!sndbuf)
 		sndbuf = alloc;
@@ -462,8 +464,8 @@ void setup(int icmp_sock)
 		options |= F_FLOOD_POLL;
 
 	if (!(options & F_PINGFILLED)) {
-		int i;
-		char *p = outpack+8;
+		unsigned int i;
+		unsigned char *p = outpack+8;
 
 		/* Do not forget about case of small datalen,
 		 * fill timestamp area too!
@@ -507,7 +509,7 @@ void main_loop(int icmp_sock, uint8_t *packet, int packlen)
 	struct iovec iov;
 	struct msghdr msg;
 	struct cmsghdr *c;
-	int cc;
+	unsigned int cc;
 	int next;
 	int polling;
 
@@ -590,10 +592,10 @@ void main_loop(int icmp_sock, uint8_t *packet, int packlen)
 			msg.msg_control = ans_data;
 			msg.msg_controllen = sizeof(ans_data);
 
-			cc = recvmsg(icmp_sock, &msg, polling);
+			int ccsize = recvmsg(icmp_sock, &msg, polling);
 			polling = MSG_DONTWAIT;
 
-			if (cc < 0) {
+			if (ccsize < 0) {
 				if (errno == EAGAIN || errno == EINTR)
 					break;
 				if (!receive_error_msg()) {
@@ -616,6 +618,7 @@ void main_loop(int icmp_sock, uint8_t *packet, int packlen)
 				}
 #endif
 
+				cc = ccsize;
 				if ((options&F_LATENCY) || recv_timep == NULL) {
 					if ((options&F_LATENCY) ||
 					    ioctl(icmp_sock, SIOCGSTAMP, &recv_time))
@@ -655,7 +658,7 @@ int gather_statistics(uint8_t *ptr, int cc, uint16_t seq, int hops,
 	if (!csfailed)
 		acknowledge(seq);
 
-	if (timing && cc >= 8+sizeof(struct timeval)) {
+	if (timing && (size_t)cc >= 8+sizeof(struct timeval)) {
 		struct timeval tmp_tv;
 		memcpy(&tmp_tv, ptr, sizeof(tmp_tv));
 
@@ -709,7 +712,7 @@ restamp:
 		else
 			write(STDOUT_FILENO, "\bC", 1);
 	} else {
-		int i;
+		unsigned int i;
 		uint8_t *cp, *dp;
 		printf("%d bytes from ", cc);
 		printf(from);
@@ -718,7 +721,7 @@ restamp:
 		if (hops >= 0)
 			printf(" ttl=%d", hops);
 
-		if (cc < datalen+8) {
+		if ((size_t)cc < datalen+8) {
 			printf(" (truncated)\n");
 			return 1;
 		}

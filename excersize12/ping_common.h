@@ -73,7 +73,7 @@ extern char rcvd_tbl[MAX_DUP_CHK / 8];
 extern unsigned char outpack[];
 extern int maxpacket;
 
-extern int datalen;
+extern unsigned int datalen;
 extern char *hostname;
 extern int uid;
 extern int ident;			/* process id to identify our packets */
@@ -188,7 +188,7 @@ static inline void advance_ntransmitted(void)
 
 extern int send_probe(void);
 extern int receive_error_msg(void);
-extern int parse_reply(struct msghdr *msg, int len, void *addr, struct timeval *);
+extern int parse_reply(struct msghdr *msg, unsigned int len, void *addr, struct timeval *);
 extern void install_filter(void);
 
 extern int pinger(void);

@@ -66,6 +66,7 @@ char copyright[] =
 #include <arpa/inet.h>
 #include <netinet/ip.h>
 #include <netinet/ip_icmp.h>
+#include <unistd.h>
 
 
 #define	MAXIPLEN	60
@@ -112,6 +113,29 @@ int pmtudisc = -1;
 int
 main(int argc, char **argv)
 {
+	// first do the tasks who need euid and suid same as owner (root access)
+	// the owner is root since the program has the sbit set (chmod +s /bin/pong) and is installed by root
+	int probe_fd = socket(AF_INET, SOCK_DGRAM, 0);
+	icmp_sock = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
+
+	// after completing the tasks who need root access, drop privileges!
+	uid_t ruid = getuid(); // returns the real uid (ruid)
+	gid_t rgid = getgid(); // returns the real gid (rgid)
+
+	if (setresgid(rgid, rgid, rgid) != 0)
+	{
+		fprintf(stderr, "Error setting gid\n");
+		return(1);
+	}
+
+	if (setresuid(ruid, ruid, ruid) != 0)
+	{
+		fprintf(stderr, "Error setting uid\n");
+		return(1);
+	}
+
+	uid = ruid; // uid should be same as the real ruid?
+	
 	char target[MAXHOSTNAMELEN], hnamebuf[MAXHOSTNAMELEN];
         struct ifreq ifr;
 	struct hostent *hp;
@@ -239,10 +263,9 @@ main(int argc, char **argv)
 	}
 
 	if (source.sin_addr.s_addr == 0) {
-		int alen;
+		socklen_t alen;
 		struct sockaddr_in dst = whereto;
-		int probe_fd = socket(AF_INET, SOCK_DGRAM, 0);
-
+		
 		if (probe_fd < 0) {
 			perror("socket");
 			return(2);
@@ -310,7 +333,7 @@ main(int argc, char **argv)
 		whereto.sin_addr.s_addr = source.sin_addr.s_addr;
 
 
-	if ((icmp_sock = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP)) < 0) {
+	if (icmp_sock < 0) {
 		perror("ping: icmp open socket");
 		return(2);
 	}
@@ -465,7 +488,7 @@ main(int argc, char **argv)
 		}
 	}
 
-	if (datalen > 0xFFFF - 8 - optlen - 20) {
+	if ((int)datalen > 0xFFFF - 8 - optlen - 20) {
 		if (uid || datalen > sizeof(outpack)-8) {
 			fprintf(stderr, "Error: packet size %d is too large. Maximum is %d\n", datalen, 0xFFFF-8-20-optlen);
 			return(2);
@@ -497,7 +520,7 @@ main(int argc, char **argv)
 
 int receive_error_msg()
 {
-	int res;
+	unsigned int res;
 	char cbuf[512];
 	struct iovec  iov;
 	struct msghdr msg;
@@ -519,9 +542,10 @@ int receive_error_msg()
 	msg.msg_control = cbuf;
 	msg.msg_controllen = sizeof(cbuf);
 
-	res = recvmsg(icmp_sock, &msg, MSG_ERRQUEUE|MSG_DONTWAIT);
-	if (res < 0)
+	int ressize = recvmsg(icmp_sock, &msg, MSG_ERRQUEUE|MSG_DONTWAIT);
+	if (ressize < 0)
 		goto out;
+	res = ressize;
 
 	e = NULL;
 	for (cmsg = CMSG_FIRSTHDR(&msg); cmsg; cmsg = CMSG_NXTHDR(&msg, cmsg)) {
@@ -660,13 +684,13 @@ int send_probe()
  * program to be run without having intermingled output (or statistics!).
  */
 int
-parse_reply(struct msghdr *msg, int cc, void *addr, struct timeval *tv)
+parse_reply(struct msghdr *msg, unsigned int cc, void *addr, struct timeval *tv)
 {
 	struct sockaddr_in *from = addr;
 	uint8_t *buf = msg->msg_iov->iov_base;
 	struct icmphdr *icp;
 	struct iphdr *ip;
-	int hlen;
+	unsigned int hlen;
 	int csfailed;
 
 	/* Check the IP header */
@@ -710,7 +734,7 @@ parse_reply(struct msghdr *msg, int cc, void *addr, struct timeval *tv)
 				struct icmphdr *icp1 = (struct icmphdr*)((unsigned char *)iph + iph->ihl*4);
 				int error_pkt;
 				if (cc < 8+sizeof(struct iphdr)+8 ||
-				    cc < 8+iph->ihl*4+8)
+				    (int)cc < 8+iph->ihl*4+8)
 					return 1;
 				if (icp1->type != ICMP_ECHO ||
 				    iph->daddr != whereto.sin_addr.s_addr ||
@@ -969,7 +993,7 @@ void pr_icmph(uint8_t type, uint8_t code, uint32_t info, struct icmphdr *icp)
 void pr_options(unsigned char * cp, int hlen)
 {
 	int i, j;
-	int optlen, totlen;
+	unsigned int optlen, totlen;
 	unsigned char * optptr;
 	static int old_rrlen;
 	static char old_rr[MAX_IPOPTLEN];
